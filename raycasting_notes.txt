@@ -1,0 +1,17 @@
+/* RayCasting - Notes */
+
+Changing code
+
+- Loop blocking
+- Branch prediction
+
+Changing input parameters
+
+- No. of repetitions unchanged - should be a constant
+- No. of threads:
+  - 4 threads - 4.62 secs
+  - 8 threads - 2.52 secs (optimum)
+  - 16 threads - 2.63 secs
+  - 32 threads - 2.64 secs
+  
+  
