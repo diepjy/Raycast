@@ -1,0 +1,15 @@
+test : raycast  RaycastInPos  RaycastInVolume  RaycastOutNormal  RaycastOutVertex  
+	./raycast   RaycastInVolume RaycastInPos RaycastOutVertex  RaycastOutNormal 640 480 0.400000006 4 0.0078125  0.07500000298 256 2
+
+raycast : raycast.cpp cutil_math.h  standalone.h  vector_types.h
+	# No optimisation version
+	#g++ $< -I. -o $@ 
+	# O3 option version
+	g++ -O3 $< -I. -o $@ 
+	# O3 and openmp version
+	#g++ -O3 -fopenmp $< -I. -o $@ 
+
+clean :
+	rm raycast
+
+.PHONY :    clean test
