@@ -1,0 +1,23 @@
+Branch prediction
+
+raycast
+
+Check all loops conditionals for unpredictable branch patterns
+
+If the condition branches almost the same each time, the branch predictor should almost always be right because of the branch history
+
+However if there are situations where we get quite different values then we want to see if we can make these more uniform or remove the conditionals to help the branch predictor
+
+Results from searching the raycast function:
+
+- if (tnear < tfar) 
+
+	This branch is always taken so there isn't much point looking into optimising this
+
+- if (f_t > 0)
+
+	This branch is always taken as well so again not much point in looking
+
+- if (f_tt < 0.8f)
+
+	This was an interesting one. The point of this conditional in the for loop is simply to change the step size to small. However it repeats this lots and lots of times having seen this experimentally. To avoid this we split the for loop into two. The loop breaks after the step goes from largestep->step so that we can completely remove this conditional from the loop. This sped up the program significantly.
