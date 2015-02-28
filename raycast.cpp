@@ -84,30 +84,35 @@ void raycastKernel(float3* vertex, float3* normal, uint2 inputSize,
 		const float farPlane, const float step, const float largestep) {
 
 	unsigned int y;
+	unsigned int x;
 
 	// Add this line and add the openmp compilation flag to the Makefile if you want to run the OpenMP version
 	#pragma omp parallel for shared(normal, vertex), private(y)
-	for (y = 0; y < inputSize.y; y++)
-		for (unsigned int x = 0; x < inputSize.x; x++) {
+	for (x = 0; x < inputSize.x; x += 5) {
+		for (y = 0; y < inputSize.y; y += 3) {
+			for (unsigned int xx = x; xx < min(x+5, inputSize.x); xx++) {
+			for (unsigned int yy = y; yy < min(y+3, inputSize.y); yy++) {
+				uint2 pos = make_uint2(xx,yy);
 
-			uint2 pos = make_uint2(x, y);
-
-			const float4 hit = raycast(integration, pos, view, nearPlane,
-					farPlane, step, largestep);
-			if (hit.w > 0.0) {
-				vertex[pos.x + pos.y * inputSize.x] = make_float3(hit);
-				float3 surfNorm = integration.grad(make_float3(hit));
-				if (length(surfNorm) == 0) {
-					normal[pos.x + pos.y * inputSize.x].x = INVALID;
+				const float4 hit = raycast(integration, pos, view, nearPlane,
+						farPlane, step, largestep);
+				if (hit.w > 0.0) {
+					vertex[(pos.x-1) + (pos.y+1) * inputSize.x] = make_float3(hit);
+					float3 surfNorm = integration.grad(make_float3(hit));
+					if (length(surfNorm) == 0) {
+						normal[pos.x + pos.y * inputSize.x].x = INVALID;
+					} else {
+						normal[pos.x + pos.y * inputSize.x] = normalize(surfNorm);
+					}
 				} else {
-					normal[pos.x + pos.y * inputSize.x] = normalize(surfNorm);
+					//std::cerr<< "RAYCAST MISS "<<  pos.x << " " << pos.y <<"  " << hit.w <<"\n";
+					vertex[pos.x + pos.y * inputSize.x] = make_float3(0);
+					normal[pos.x + pos.y * inputSize.x] = make_float3(INVALID, INVALID,INVALID);
 				}
-			} else {
-				//std::cerr<< "RAYCAST MISS "<<  pos.x << " " << pos.y <<"  " << hit.w <<"\n";
-				vertex[pos.x + pos.y * inputSize.x] = make_float3(0);
-				normal[pos.x + pos.y * inputSize.x] = make_float3(INVALID, INVALID,INVALID);
+			}
 			}
 		}
+	}
 
 }
 
