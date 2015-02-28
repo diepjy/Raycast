@@ -6,8 +6,6 @@
 
 #define BILLION 1000000000L
 
-
-
 inline bool nequal(float a , float b) {return abs(a-b) >   0.0001;}
 
 float4 raycast(const Volume volume, const uint2 pos, const Matrix4 view,
@@ -38,27 +36,51 @@ float4 raycast(const Volume volume, const uint2 pos, const Matrix4 view,
 	const float tnear = fmaxf(largest_tmin, nearPlane);
 	const float tfar = fminf(smallest_tmax, farPlane);
 
+
 	if (tnear < tfar) {
 		// first walk with largesteps until we found a hit
 		float t = tnear;
+        float f_tt = 0;
+
 		float stepsize = largestep;
 		float f_t = volume.interp(origin + direction * t);
-		float f_tt = 0;
+		
 		if (f_t > 0) { // ups, if we were already in it, then don't render anything here
+
 			for (; t < tfar; t += stepsize) {
+
 				f_tt = volume.interp(origin + direction * t);
-				if (f_tt < 0)                  // got it, jump out of inner loop
+
+				if (f_tt < 0)              // got it, jump out of inner loop
 					break;
-				if (f_tt < 0.8f)               // coming closer, reduce stepsize
+                
+                //We've changed this so that it only performs this once. {BRANCH PREDICTION}
+				if (f_tt < 0.8f) {               // coming closer, reduce stepsize
+                    f_t = f_tt;
 					stepsize = step;
+                    break;
+                } 
+
 				f_t = f_tt;
 			}
+
+            for (; t < tfar; t += stepsize) {
+
+                f_tt = volume.interp(origin + direction * t);
+
+                if (f_tt < 0)              // got it, jump out of inner loop
+                    break;
+                
+                f_t = f_tt;
+            }
+
 			if (f_tt < 0) {           // got it, calculate accurate intersection
 				t = t + stepsize * f_tt / (f_t - f_tt);
 				return make_float4(origin + direction * t, t);
 			}
-		}
-	}
+            
+		} 
+	} 
 	return make_float4(0);
 
 }
@@ -109,6 +131,7 @@ void raycastKernel(float3* vertex, float3* normal, uint2 inputSize,
 			}
 		}
 
+    std::cout << "Iterations: " << (inputSize.y*inputSize.x) << std::endl;
 }
 
 
@@ -230,6 +253,8 @@ int main(int argc, char ** argv) {
     } else {
         std::cout << "End of check " << total - diff << "/" << total << " success" << std::endl;
     }
+
+    std::cout << "*** TEST BRANCHES" << std::endl;
 
     return (diff != 0);
 
