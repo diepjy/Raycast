@@ -87,9 +87,9 @@ void raycastKernel(float3* vertex, float3* normal, uint2 inputSize,
 
 	// Add this line and add the openmp compilation flag to the Makefile if you want to run the OpenMP version
 	#pragma omp parallel for shared(normal, vertex), private(y)
-	for (unsigned int xx = 0; xx < inputSize.xx; xx += 2) {
+	for (xx = 0; xx < inputSize.xx; xx += 1) 
 		for (yy = 0; yy < inputSize.yy; yy += 1) {
-			for(unsigned int x = xx; x < min(xx+2, inputSize.xx); x++) {
+			for(x = xx; x < min(xx+1, inputSize.xx); x++) {
 			for (y = yy; y < min(yy+1, inputsize.yy); y++) {
 				uint2 pos = make_uint2(x, y);
 
@@ -111,7 +111,7 @@ void raycastKernel(float3* vertex, float3* normal, uint2 inputSize,
 			}
 			}
 		}
-	}
+	
 
 }
 

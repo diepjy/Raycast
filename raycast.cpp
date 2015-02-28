@@ -87,31 +87,27 @@ void raycastKernel(float3* vertex, float3* normal, uint2 inputSize,
 
 	// Add this line and add the openmp compilation flag to the Makefile if you want to run the OpenMP version
 	#pragma omp parallel for shared(normal, vertex), private(y)
-	for (unsigned int xx = 0; xx < inputSize.xx; xx += 1) {
-		for (yy = 0; yy < inputSize.yy; yy += 1) {
-			for(unsigned int x = xx; x < min(xx+1, inputSize.xx); x++) {
-			for (y = yy; y < min(yy+1, inputsize.yy); y++) {
-				uint2 pos = make_uint2(x, y);
+	for (y = 0; y < inputSize.y; y++)
+		for (unsigned int x = 0; x < inputSize.x; x++) {
 
-				const float4 hit = raycast(integration, pos, view, nearPlane,
+			uint2 pos = make_uint2(x, y);
+
+			const float4 hit = raycast(integration, pos, view, nearPlane,
 					farPlane, step, largestep);
-				if (hit.w > 0.0) {
-					vertex[pos.x + pos.y * inputSize.x] = make_float3(hit);
-					float3 surfNorm = integration.grad(make_float3(hit));
-					if (length(surfNorm) == 0) {
-						normal[pos.x + pos.y * inputSize.x].x = INVALID;
-					} else {
-						normal[pos.x + pos.y * inputSize.x] = normalize(surfNorm);
-					}
+			if (hit.w > 0.0) {
+				vertex[pos.x + pos.y * inputSize.x] = make_float3(hit);
+				float3 surfNorm = integration.grad(make_float3(hit));
+				if (length(surfNorm) == 0) {
+					normal[pos.x + pos.y * inputSize.x].x = INVALID;
 				} else {
-					//std::cerr<< "RAYCAST MISS "<<  pos.x << " " << pos.y <<"  " << hit.w <<"\n";
-					vertex[pos.x + pos.y * inputSize.x] = make_float3(0);
-					normal[pos.x + pos.y * inputSize.x] = make_float3(INVALID, INVALID,INVALID);
+					normal[pos.x + pos.y * inputSize.x] = normalize(surfNorm);
 				}
-			}
+			} else {
+				//std::cerr<< "RAYCAST MISS "<<  pos.x << " " << pos.y <<"  " << hit.w <<"\n";
+				vertex[pos.x + pos.y * inputSize.x] = make_float3(0);
+				normal[pos.x + pos.y * inputSize.x] = make_float3(INVALID, INVALID,INVALID);
 			}
 		}
-	}
 
 }
 
