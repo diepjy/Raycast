@@ -4,7 +4,7 @@ raycast : raycast.cpp cutil_math.h  standalone.h  vector_types.h
 	# O3 option version
 	#g++ -O3 $< -I. -o $@ 
 	# O3 and openmp version
-	g++ -O3 -fopenmp $< -I. -o $@ 
+	g++ -ffast-math -O3 -m64 -mavx -fopenmp $< -I. -pg -g -o $@ 
 
 clean :
 	rm raycast

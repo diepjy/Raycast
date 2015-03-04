@@ -1,4 +1,3 @@
-
 #include "standalone.h"
 #include <iostream>
 #include <iomanip>
@@ -9,60 +8,59 @@
 inline bool nequal(float a , float b) {return abs(a-b) >   0.0001;}
 
 float4 raycast(const Volume volume, const uint2 pos, const Matrix4 view,
-		const float nearPlane, const float farPlane, const float step,
-		const float largestep) {
+        const float nearPlane, const float farPlane, const float step,
+        const float largestep) {
 
-	const float3 origin = get_translation(view);
-	const float3 direction = rotate(view, make_float3(pos.x, pos.y, 1.f));
+    const float3 origin = get_translation(view);
+    const float3 direction = rotate(view, make_float3(pos.x, pos.y, 1.f));
 
-	// intersect ray with a box
-	// http://www.siggraph.org/education/materials/HyperGraph/raytrace/rtinter3.htm
-	// compute intersection of ray with all six bbox planes
-	const float3 invR = make_float3(1.0f) / direction;
-	const float3 tbot = -1 * invR * origin;
-	const float3 ttop = invR * (volume.dim - origin);
+    // intersect ray with a box
+    // http://www.siggraph.org/education/materials/HyperGraph/raytrace/rtinter3.htm
+    // compute intersection of ray with all six bbox planes
+    const float3 invR = make_float3(1.0f) / direction;
+    const float3 tbot = -1 * invR * origin;
+    const float3 ttop = invR * (volume.dim - origin);
 
-	// re-order intersections to find smallest and largest on each axis
-	const float3 tmin = fminf(ttop, tbot);
-	const float3 tmax = fmaxf(ttop, tbot);
+    // re-order intersections to find smallest and largest on each axis
+    const float3 tmin = fminf(ttop, tbot);
+    const float3 tmax = fmaxf(ttop, tbot);
 
-	// find the largest tmin and the smallest tmax
-	const float largest_tmin = fmaxf(fmaxf(tmin.x, tmin.y),
-			fmaxf(tmin.x, tmin.z));
-	const float smallest_tmax = fminf(fminf(tmax.x, tmax.y),
-			fminf(tmax.x, tmax.z));
+    // find the largest tmin and the smallest tmax
+    const float largest_tmin = fmaxf(fmaxf(tmin.x, tmin.y),
+            fmaxf(tmin.x, tmin.z));
+    const float smallest_tmax = fminf(fminf(tmax.x, tmax.y),
+            fminf(tmax.x, tmax.z));
 
-	// check against near and far plane
-	const float tnear = fmaxf(largest_tmin, nearPlane);
-	const float tfar = fminf(smallest_tmax, farPlane);
+    // check against near and far plane
+    const float tnear = fmaxf(largest_tmin, nearPlane);
+    const float tfar = fminf(smallest_tmax, farPlane);
 
+    if (tnear < tfar) {
+        // first walk with largesteps until we found a hit
+        float t = tnear;
+        float f_tt = 1;
 
-	if (tnear < tfar) {
-		// first walk with largesteps until we found a hit
-		float t = tnear;
-        float f_tt = 0;
+        float stepsize = largestep;
+        float f_t = volume.interp(origin + direction * t);
+        
+        if (f_t > 0) { // ups, if we were already in it, then don't render anything here
 
-		float stepsize = largestep;
-		float f_t = volume.interp(origin + direction * t);
-		
-		if (f_t > 0) { // ups, if we were already in it, then don't render anything here
+            for (; t < tfar; t += stepsize) {
 
-			for (; t < tfar; t += stepsize) {
+                f_tt = volume.interp(origin + direction * t);
 
-				f_tt = volume.interp(origin + direction * t);
-
-				if (f_tt < 0)              // got it, jump out of inner loop
-					break;
+                if (f_tt < 0)              // got it, jump out of inner loop
+                    break;
                 
                 //We've changed this so that it only performs this once. {BRANCH PREDICTION}
-				if (f_tt < 0.8f) {               // coming closer, reduce stepsize
+                if (f_tt < 0.8f) {               // coming closer, reduce stepsize
                     f_t = f_tt;
-					stepsize = step;
+                    stepsize = step;
                     break;
                 } 
 
-				f_t = f_tt;
-			}
+                f_t = f_tt;
+            }
 
             for (; t < tfar; t += stepsize) {
 
@@ -74,14 +72,14 @@ float4 raycast(const Volume volume, const uint2 pos, const Matrix4 view,
                 f_t = f_tt;
             }
 
-			if (f_tt < 0) {           // got it, calculate accurate intersection
-				t = t + stepsize * f_tt / (f_t - f_tt);
-				return make_float4(origin + direction * t, t);
-			}
+            if (f_tt < 0) {           // got it, calculate accurate intersection
+                t = t + stepsize * f_tt / (f_t - f_tt);
+                return make_float4(origin + direction * t, t);
+            }
             
-		} 
-	} 
-	return make_float4(0);
+        } 
+    } 
+    return make_float4(0);
 
 }
 
@@ -101,37 +99,44 @@ float4 raycast(const Volume volume, const uint2 pos, const Matrix4 view,
  * step: the small step used in the raycast walk when we are close to the surface
  * largestep: the large step used in the raycast walk when we are far from the surface
  */
-void raycastKernel(float3* vertex, float3* normal, uint2 inputSize,
-		const Volume integration, const Matrix4 view, const float nearPlane,
-		const float farPlane, const float step, const float largestep) {
+void raycastKernel(float3* __restrict vertex, float3* __restrict normal, uint2 inputSize,
+        const Volume integration, const Matrix4 view, const float nearPlane,
+        const float farPlane, const float step, const float largestep) {
 
-	unsigned int y;
+    int y;
+    int x;
+    // Add this line and add the openmp compilation flag to the Makefile if you want to run the OpenMP version
+    #pragma omp parallel for shared(normal, vertex), private(y), private(x)
+    for (y = 0; y < inputSize.y; y++)
+        for (x = 0; x < inputSize.x; x++) {
 
-	// Add this line and add the openmp compilation flag to the Makefile if you want to run the OpenMP version
-	#pragma omp parallel for shared(normal, vertex), private(y)
-	for (y = 0; y < inputSize.y; y++)
-		for (unsigned int x = 0; x < inputSize.x; x++) {
 
-			uint2 pos = make_uint2(x, y);
+            float3 *vertex2 = (float3*)__builtin_assume_aligned(vertex, 16);
+	        float3 *normal2 = (float3*)__builtin_assume_aligned(normal, 16);
 
-			const float4 hit = raycast(integration, pos, view, nearPlane,
-					farPlane, step, largestep);
-			if (hit.w > 0.0) {
-				vertex[pos.x + pos.y * inputSize.x] = make_float3(hit);
-				float3 surfNorm = integration.grad(make_float3(hit));
-				if (length(surfNorm) == 0) {
-					normal[pos.x + pos.y * inputSize.x].x = INVALID;
-				} else {
-					normal[pos.x + pos.y * inputSize.x] = normalize(surfNorm);
-				}
-			} else {
-				//std::cerr<< "RAYCAST MISS "<<  pos.x << " " << pos.y <<"  " << hit.w <<"\n";
-				vertex[pos.x + pos.y * inputSize.x] = make_float3(0);
-				normal[pos.x + pos.y * inputSize.x] = make_float3(INVALID, INVALID,INVALID);
-			}
-		}
+            uint2 pos = make_uint2(x, y);
 
-    std::cout << "Iterations: " << (inputSize.y*inputSize.x) << std::endl;
+            const float4 hit = raycast(integration, pos, view, nearPlane,
+                    farPlane, step, largestep);
+
+
+            if (hit.w > 0.0) {
+
+                float3 surfNorm = integration.grad(make_float3(hit));
+                vertex2[pos.x + pos.y * inputSize.x] = make_float3(hit);
+                normal2[pos.x + pos.y * inputSize.x] = (length(surfNorm) == 0) ? make_float3(INVALID, INVALID, INVALID) : normalize(surfNorm);
+               /* if (length(surfNorm) == 0) {
+                    normal2[pos.x + pos.y * inputSize.x] = make_float3(INVALID, INVALID, INVALID);
+                } else {
+                    normal2[pos.x + pos.y * inputSize.x] = normalize(surfNorm);
+                } */
+            } else {
+                //std::cerr<< "RAYCAST MISS "<<  pos.x << " " << pos.y <<"  " << hit.w <<"\n";
+                vertex2[pos.x + pos.y * inputSize.x] = make_float3(0);
+                normal2[pos.x + pos.y * inputSize.x] = make_float3(INVALID, INVALID,INVALID);
+            }
+        }
+
 }
 
 
@@ -189,8 +194,12 @@ int main(int argc, char ** argv) {
     read_input<short2>(inputVolumeFile, inputVolume.data);
     read_input<Matrix4>(inputPosFile, &inputPos);
 
+    //float3 vert;
+    //float3 norm;
+
     float3 * vertex = (float3*) malloc(sizeof(float3) * computationSize.x * computationSize.y);
     float3 * normal = (float3*) malloc(sizeof(float3) * computationSize.x * computationSize.y);
+
 
     std::cout << "********** INIT AND DO THE JOB **************" << std::endl;
 
@@ -232,19 +241,19 @@ int main(int argc, char ** argv) {
 
     for (unsigned int i = 0; i < total; i++) {
       if (nequal(goldVertex[i].x , vertex[i].x) || nequal(goldVertex[i].y , vertex[i].y) || nequal(goldVertex[i].z , vertex[i].z)  ) {
-	  if (diff == 0) {
+      if (diff == 0) {
                 std::cout << "Failed vertex pixel X " << i << ": expected " << goldVertex[i].x << " and observed " << vertex[i].x << std::endl;
                 std::cout << "Failed vertex pixel Y " << i << ": expected " << goldVertex[i].y << " and observed " << vertex[i].y << std::endl;
                 std::cout << "Failed vertex pixel Z " << i << ": expected " << goldVertex[i].z << " and observed " << vertex[i].z << std::endl;
-	  }
+      }
           diff++;
         }
       if (nequal(goldNormal[i].x , normal[i].x) || nequal(goldNormal[i].y , normal[i].y) || nequal(goldNormal[i].z , normal[i].z)  ) {
-	  if (diff == 0) {
+      if (diff == 0) {
                 std::cout << "Failed normal pixel X " << i << ": expected " << goldNormal[i].x << " and observed " << normal[i].x << std::endl;
                 std::cout << "Failed normal pixel Y " << i << ": expected " << goldNormal[i].y << " and observed " << normal[i].y << std::endl;
                 std::cout << "Failed normal pixel Z " << i << ": expected " << goldNormal[i].z << " and observed " << normal[i].z << std::endl;
-	  }
+      }
           diff++;
         }
     }

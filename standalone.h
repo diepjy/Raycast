@@ -114,6 +114,10 @@ struct Volume {
 
 		float3 gradient;
 
+		//#pragma omp parallel sections
+		{
+		//#pragma omp section
+		{
 		gradient.x = (((vs2(upper_lower.x, lower.y, lower.z)
 				- vs2(lower_lower.x, lower.y, lower.z)) * (1 - factor.x)
 				+ (vs2(upper_upper.x, lower.y, lower.z)
@@ -135,6 +139,9 @@ struct Volume {
 								+ (vs2(upper_upper.x, upper.y, upper.z)
 										- vs2(lower_upper.x, upper.y, upper.z))
 										* factor.x) * factor.y) * factor.z;
+		}
+		//#pragma omp section 
+		{
 
 		gradient.y = (((vs2(lower.x, upper_lower.y, lower.z)
 				- vs2(lower.x, lower_lower.y, lower.z)) * (1 - factor.x)
@@ -158,6 +165,10 @@ struct Volume {
 										- vs2(upper.x, lower_upper.y, upper.z))
 										* factor.x) * factor.y) * factor.z;
 
+		}
+
+		//#pragma omp section 
+		{
 		gradient.z = (((vs2(lower.x, lower.y, upper_lower.z)
 				- vs2(lower.x, lower.y, lower_lower.z)) * (1 - factor.x)
 				+ (vs2(upper.x, lower.y, upper_lower.z)
@@ -179,7 +190,8 @@ struct Volume {
 								+ (vs2(upper.x, upper.y, upper_upper.z)
 										- vs2(upper.x, upper.y, lower_upper.z))
 										* factor.x) * factor.y) * factor.z;
-
+		}
+		}
 		return gradient
 				* make_float3(dim.x / size.x, dim.y / size.y, dim.z / size.z)
 				* (0.5f * 0.00003051944088f);
