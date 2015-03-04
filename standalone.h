@@ -114,7 +114,7 @@ struct Volume {
 
 		float3 gradient;
 
-		//#pragma omp parallel sections
+		#pragma simd
 		{
 		//#pragma omp section
 		{

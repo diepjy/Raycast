@@ -194,9 +194,6 @@ int main(int argc, char ** argv) {
     read_input<short2>(inputVolumeFile, inputVolume.data);
     read_input<Matrix4>(inputPosFile, &inputPos);
 
-    //float3 vert;
-    //float3 norm;
-
     float3 * vertex = (float3*) malloc(sizeof(float3) * computationSize.x * computationSize.y);
     float3 * normal = (float3*) malloc(sizeof(float3) * computationSize.x * computationSize.y);
 
